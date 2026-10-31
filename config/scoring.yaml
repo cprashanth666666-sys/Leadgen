@@ -1,0 +1,14 @@
+fit_weights: {sector: 30, geography: 20, size: 20, revenue: 15, trigger: 15}   # sums to 100
+intent_points:
+  open: 2            # capped at 6 per lead
+  click: 5
+  reply: 20
+  positive_reply: 30
+  pricing_question: 25
+  meeting_booked: 40
+  unsubscribe: suppress
+decay_half_life_days: 14
+promotion_thresholds:   # fit + intent
+  Engaged: 25
+  Qualified: 50
+  Sales-Ready: 75

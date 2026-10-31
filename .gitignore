@@ -1,0 +1,16 @@
+# This repo is public. Client material and lead data stay local.
+docs/
+config/client_document_standard.md
+
+# Secrets and local data
+.env
+*.db
+*.sqlite
+*.xlsx
+*.csv
+*.zip
+
+# Python
+__pycache__/
+*.pyc
+.venv/

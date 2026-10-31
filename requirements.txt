@@ -1,0 +1,6 @@
+anthropic>=0.40
+firecrawl-py
+streamlit
+pyyaml
+python-dotenv
+dnspython
