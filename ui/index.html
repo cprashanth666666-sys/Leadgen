@@ -1,0 +1,644 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Leadgen Pipeline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
+<style>
+:root{
+  --bg:#f3f4f2;--surface:#fbfbfa;--sunk:#e9ebe7;--line:#d3d6d0;--line-strong:#a9ada5;
+  --ink:#191c19;--muted:#555b54;--accent:#0b6148;--accent-ink:#f6faf8;--accent-soft:#dcebe5;
+  --warn:#8a4b00;--warn-soft:#f6ead8;--bad:#a12a1c;--bad-soft:#f7e3df;
+  --radius:4px;--sans:Geist,"Segoe UI",system-ui,sans-serif;--mono:"Geist Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#131513;--surface:#1a1d1a;--sunk:#232723;--line:#333833;--line-strong:#555b54;
+  --ink:#eceee9;--muted:#a4aaa2;--accent:#5fc7a4;--accent-ink:#0d1f19;--accent-soft:#1c3a30;
+  --warn:#e6b06a;--warn-soft:#3a2b16;--bad:#f0907f;--bad-soft:#3e1f1a;
+}}
+:root[data-theme="dark"]{
+  --bg:#131513;--surface:#1a1d1a;--sunk:#232723;--line:#333833;--line-strong:#555b54;
+  --ink:#eceee9;--muted:#a4aaa2;--accent:#5fc7a4;--accent-ink:#0d1f19;--accent-soft:#1c3a30;
+  --warn:#e6b06a;--warn-soft:#3a2b16;--bad:#f0907f;--bad-soft:#3e1f1a;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--sans)}
+button,input,select,textarea{font:inherit;color:inherit}
+h1{font-size:28px;line-height:1.15;letter-spacing:-.02em;margin:0 0 6px;font-weight:600}
+h2{font-size:16px;margin:0 0 10px;font-weight:600}
+p{margin:0}
+.muted{color:var(--muted)}.small{font-size:13px}.mono{font-family:var(--mono);font-size:13px}
+.shell{display:grid;grid-template-columns:248px minmax(0,1fr);min-height:100dvh}
+.rail{background:var(--surface);border-right:1px solid var(--line);padding:18px 14px;display:flex;flex-direction:column;gap:18px;position:sticky;top:0;height:100dvh;overflow:auto}
+.rail label{font-size:13px;color:var(--muted)}
+.pipeline{list-style:none;margin:0;padding:0;position:relative}
+.pipeline li{position:relative}
+.pipeline li+li::before{content:"";position:absolute;left:20px;top:-10px;height:20px;width:1px;background:var(--line-strong)}
+.step{display:flex;width:100%;gap:10px;align-items:center;padding:10px;margin-bottom:4px;background:none;border:0;border-radius:var(--radius);cursor:pointer;text-align:left;position:relative}
+.step i{font-size:20px;background:var(--surface);z-index:1}
+.step:hover:not(:disabled){background:var(--sunk)}
+.step[aria-current="page"]{background:var(--accent-soft);font-weight:600}
+.step:disabled{color:var(--muted);cursor:not-allowed}
+.step.done i{color:var(--accent)}
+.step[aria-current="page"] i{background:transparent}
+.rail-foot{margin-top:auto;display:grid;gap:8px}
+main{padding:28px clamp(16px,4vw,48px) 96px;max-width:1280px;width:100%}
+.head{margin-bottom:24px;max-width:70ch}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field>span{font-size:13px;font-weight:500}
+input,select,textarea{background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--radius);padding:7px 9px;width:100%}
+textarea{min-height:88px;resize:vertical}
+input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+input::placeholder,textarea::placeholder{color:var(--muted)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;padding:7px 12px;border:1px solid var(--line-strong);border-radius:var(--radius);background:var(--surface);cursor:pointer;transition:transform .12s ease,background .12s ease}
+.btn:hover:not(:disabled){background:var(--sunk)}
+.btn:active:not(:disabled){transform:scale(.98)}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.btn.primary:hover:not(:disabled){background:var(--accent);filter:brightness(1.1)}
+.btn.small{padding:3px 8px;font-size:13px}
+.row{display:flex;gap:10px;align-items:end;flex-wrap:wrap}
+.grow{flex:1 1 220px}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.split{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:32px;align-items:start}
+.split-thin{display:grid;grid-template-columns:260px minmax(0,1fr) 300px;gap:24px;align-items:start}
+section{margin-bottom:32px}
+.split.client .facts{grid-column:1/-1;grid-row:2}
+.split.client .panel{grid-column:2;grid-row:1}
+.facts td:nth-child(1){width:24%}.facts td:nth-child(3){width:130px}
+td.mono{white-space:nowrap}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px}
+.gate{position:sticky;bottom:0;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-top:24px;padding:12px 16px;background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--radius)}
+table{border-collapse:collapse;width:100%}
+th{font-size:13px;text-align:left;font-weight:500;color:var(--muted);padding:6px 8px;border-bottom:1px solid var(--line-strong);white-space:nowrap}
+td{padding:7px 8px;vertical-align:middle}
+tbody tr+tr td{border-top:1px solid var(--line)}
+tbody tr.pick{cursor:pointer}
+tbody tr.pick:hover{background:var(--sunk)}
+tbody tr.sel{background:var(--accent-soft)}
+.wrap-x{overflow-x:auto}
+.num{font-family:var(--mono);text-align:right}
+.band{font-family:var(--mono);font-size:12px;padding:1px 6px;border:1px solid var(--line-strong);border-radius:var(--radius);white-space:nowrap}
+.band.HOT{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.band.WARM{border-color:var(--accent);color:var(--accent);font-weight:600}
+.band.PARKED{color:var(--muted);border-style:dashed}
+.note{padding:8px 12px;border-radius:var(--radius);background:var(--sunk);font-size:14px}
+.note.warn{background:var(--warn-soft);color:var(--warn)}
+.note.bad{background:var(--bad-soft);color:var(--bad)}
+.note.ok{background:var(--accent-soft)}
+.checks{list-style:none;margin:8px 0;padding:0;font-size:14px}
+.checks li{display:flex;gap:6px;align-items:baseline}
+.checks .fail{color:var(--bad);font-weight:500}.checks .warn{color:var(--warn)}.checks .pass{color:var(--muted)}
+.intake{columns:2;column-gap:28px;margin:0;padding:0;list-style:none}
+.intake li{break-inside:avoid;margin-bottom:6px}
+.intake label{display:flex;gap:8px;align-items:flex-start;cursor:pointer}
+input[type=checkbox]{width:auto;margin-top:4px;accent-color:var(--accent)}
+.list-btn{display:block;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--line);padding:10px 8px;cursor:pointer}
+.list-btn:hover{background:var(--sunk)}
+.list-btn[aria-current="true"]{background:var(--accent-soft)}
+.thread{display:flex;flex-direction:column;gap:10px;min-height:120px;margin-bottom:14px}
+.msg{max-width:88%;padding:9px 12px;border-radius:var(--radius);border:1px solid var(--line);background:var(--surface);animation:rise .22s cubic-bezier(.16,1,.3,1)}
+.msg.out{align-self:flex-end;background:var(--accent-soft);border-color:transparent}
+.msg .meta{font-size:12px;color:var(--muted);margin-top:4px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.score-big{font:600 44px/1 var(--mono);letter-spacing:-.03em}
+.funnel{display:flex;gap:0;flex-wrap:wrap;margin-bottom:20px;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface)}
+.funnel div{flex:1 1 90px;padding:10px 12px}
+.funnel div+div{border-left:1px solid var(--line)}
+.funnel b{display:block;font:600 22px var(--mono)}
+.events{display:grid;gap:4px;max-height:360px;overflow:auto}
+.events .btn{justify-content:space-between;white-space:normal;text-align:left;font-size:13px}
+details>summary{cursor:pointer;font-weight:500;padding:6px 0}
+.drawer{position:fixed;inset:0 0 0 auto;width:min(480px,100vw);background:var(--surface);border-left:1px solid var(--line-strong);padding:20px;overflow:auto;transform:translateX(100%);visibility:hidden;transition:transform .26s cubic-bezier(.16,1,.3,1),visibility .26s;z-index:20}
+.drawer.open{transform:none;visibility:visible}
+.trace{list-style:none;padding:0;margin:10px 0;font-size:14px}
+.trace li{display:flex;gap:8px;align-items:baseline;padding:2px 0}
+.trace i{color:var(--accent)}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:var(--radius);z-index:30;font-size:14px;max-width:90vw}
+.page{animation:rise .24s cubic-bezier(.16,1,.3,1)}
+.skeleton{height:14px;background:var(--sunk);margin:10px 0;border-radius:var(--radius)}
+@keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media (max-width:1100px){.split-thin{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:860px){
+  .shell{grid-template-columns:minmax(0,1fr)}
+  .rail{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line)}
+  .pipeline{display:flex;overflow-x:auto;gap:4px}
+  .pipeline li+li::before{display:none}
+  .step{white-space:nowrap}
+  .split,.grid2{grid-template-columns:minmax(0,1fr)!important}
+  .split.client .facts,.split.client .panel{grid-column:auto;grid-row:auto}
+  .intake{columns:1}
+  .rail-foot{margin-top:0}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+  <nav class="rail" aria-label="Pipeline">
+    <strong>Leadgen Pipeline</strong>
+    <div class="field"><label for="clientSel">Client</label><select id="clientSel" data-change="switchClient"></select>
+      <button class="btn small" data-act="newClient" style="margin-top:4px"><i class="ph ph-plus"></i>New client</button></div>
+    <ol class="pipeline" id="pipeline"></ol>
+    <div class="rail-foot">
+      <button class="btn" data-act="openDrive"><i class="ph ph-google-drive-logo"></i>Drive storage</button>
+      <p class="small muted" id="saveState" role="status"></p>
+    </div>
+  </nav>
+  <main id="page"></main>
+</div>
+<aside class="drawer" id="drawer" aria-label="Drive storage"></aside>
+<div id="toastHost" aria-live="polite"></div>
+
+<script>
+"use strict";
+const STEPS=[
+  {id:"client",label:"Client",icon:"ph-buildings"},
+  {id:"docs",label:"Documents",icon:"ph-files"},
+  {id:"profiles",label:"Target profiles",icon:"ph-crosshair"},
+  {id:"leads",label:"Lead hunt",icon:"ph-magnifying-glass"},
+  {id:"talk",label:"Conversations",icon:"ph-chats-circle"}];
+const INTAKE=["Company registration, founding year, legal entity, offices","Product catalogue or brochure","Key clients, anchor customers, case studies","Certifications and regulatory registrations","Sales process, cycle length, definition of deal closed","CRM tool and fixed stage definitions","Team structure and coverage by geography","Top competitors and competitors to avoid","Brand materials: logo, HEX colours, fonts, tone","Buying roles and disqualification signals","Active outreach channels and regulatory limits","Existing lead lists, consent basis, past fit analyses","Prior messages, reply data, approved and banned lines","Languages per geography and translation approver","Credibility claim and its source","Pitch deck, packages, vision, values, testimonials","Named contact, approval authority, sign-off channel"];
+const DOC_NAMES=["Company Overview","Target Profiles","Product Brochure","Nurture Strategy","Lead Scoring Framework","Brand Guidelines"];
+const blankWorkspace=(slug,name)=>({client:{slug,name,url:"",sector:"",markets:"",contact:""},facts:[],intake:{},
+  documents:DOC_NAMES.map((n,i)=>({id:"d"+i,name:n,status:"missing",version:"",source:"",note:""})),
+  rules:{scoring:{fit:[],events:[],bands:[],stages:[]},messaging:{anchor:"",banned:[],replace:[],templates:[],maxChars:0}},
+  profiles:[],leads:[],suppression:[]});
+
+const S={server:false,clients:[],ws:null,page:"client",status:null,files:[],archives:[],trace:[],busy:false,
+  leadFilter:{q:"",profile:"",band:"",short:false,page:0},leadId:null,profileId:null,talkId:null,draft:"",draftChannel:"whatsapp",hunt:[],excerpt:""};
+const $=s=>document.querySelector(s);
+const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const fmtBytes=b=>b<1024?b+" B":b<1048576?(b/1024).toFixed(1)+" KB":(b/1048576).toFixed(1)+" MB";
+const fmtTime=t=>new Date(t).toLocaleString(undefined,{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"});
+
+async function api(path,opts={}){
+  const r=await fetch(path,{...opts,headers:{"X-Leadgen":"1",...(opts.body&&typeof opts.body==="string"?{"Content-Type":"application/json"}:{}),...opts.headers}});
+  const data=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(data.error||"Request failed ("+r.status+")");
+  return data;
+}
+const post=(p,b)=>api(p,{method:"POST",body:JSON.stringify(b)});
+function toast(msg){const h=$("#toastHost");h.innerHTML=`<div class="toast">${esc(msg)}</div>`;clearTimeout(toast.t);toast.t=setTimeout(()=>h.innerHTML="",3800)}
+
+/* Persistence: the local server when running, this browser otherwise. */
+let saveTimer;
+function save(){
+  clearTimeout(saveTimer);
+  $("#saveState").textContent="Saving";
+  saveTimer=setTimeout(async()=>{
+    const slug=S.ws.client.slug;
+    try{
+      if(S.server)await api("/api/workspace?client="+slug,{method:"PUT",body:JSON.stringify(S.ws)});
+      else try{localStorage.setItem("leadgen:"+slug,JSON.stringify(S.ws))}catch{throw new Error("Browser storage is unavailable")}
+      $("#saveState").textContent=S.server?"Saved on this PC":"Saved in this browser only";
+    }catch(e){$("#saveState").textContent="Not saved: "+e.message}
+  },350);
+}
+
+/* Scoring: all weights come from the client's own rules, never from code. */
+const scoring=()=>S.ws.rules.scoring;
+const fitScore=l=>scoring().fit.reduce((t,c)=>t+(Number(l.fit?.[c.id])||0),0);
+const eventDef=id=>scoring().events.find(e=>e.id===id);
+function scoreOf(l){
+  const fit=fitScore(l);
+  const raw=(l.events||[]).reduce((t,e)=>t+(eventDef(e.id)?.points||0),0);
+  const engagement=Math.min(raw,50);
+  const floor=Math.max(0,...(l.events||[]).map(e=>eventDef(e.id)?.floor||0));
+  const total=Math.max(floor,Math.min(100,Math.max(0,fit+engagement)));
+  return {fit,engagement,total,band:bandOf(total)};
+}
+function bandOf(t){return [...scoring().bands].sort((a,b)=>b.min-a.min).find(b=>t>=b.min)||{name:"Unscored",action:"Load this client's scoring framework on the Documents page."}}
+const isStopped=l=>(l.events||[]).some(e=>eventDef(e.id)?.stop)||(l.contacts||[]).some(c=>S.ws.suppression.includes(c.value));
+
+/* Gates decide which page opens next. */
+function gates(){
+  const w=S.ws;
+  return {
+    client:{ok:!!(w.client.name&&w.client.url),why:"Add the client name and website."},
+    docs:{ok:w.documents.every(d=>d.status!=="missing")&&scoring().fit.length>0,why:w.documents.some(d=>d.status==="missing")?w.documents.filter(d=>d.status==="missing").length+" document(s) still missing.":"Load the client's scoring framework."},
+    profiles:{ok:w.profiles.some(p=>p.active),why:"Activate at least one target profile."},
+    leads:{ok:w.leads.some(l=>l.shortlisted),why:"Shortlist at least one lead."},
+    talk:{ok:true,why:""}};
+}
+function unlocked(i){const g=gates();return STEPS.slice(0,i).every(s=>g[s.id].ok)}
+function go(id){const i=STEPS.findIndex(s=>s.id===id);if(unlocked(i)){S.page=id;render();window.scrollTo(0,0)}}
+
+function renderRail(){
+  const g=gates();
+  $("#pipeline").innerHTML=STEPS.map((s,i)=>{
+    const open=unlocked(i),done=g[s.id].ok&&i<4;
+    const icon=!open?"ph-lock-simple":done?"ph-check-circle":s.icon;
+    return `<li><button class="step ${done?"done":""}" data-act="go" data-id="${s.id}" ${open?"":"disabled"} ${S.page===s.id?'aria-current="page"':""}><i class="ph ${icon}" aria-hidden="true"></i>${s.label}</button></li>`}).join("");
+  $("#clientSel").innerHTML=S.clients.map(c=>`<option value="${esc(c)}" ${c===S.ws.client.slug?"selected":""}>${esc(c)}</option>`).join("");
+}
+function gateBar(id,nextLabel){
+  const g=gates()[id],i=STEPS.findIndex(s=>s.id===id),next=STEPS[i+1];
+  return `<div class="gate"><span>${g.ok?"Ready for "+next.label.toLowerCase()+".":esc(g.why)}</span><button class="btn primary" data-act="go" data-id="${next.id}" ${g.ok?"":"disabled"}>${nextLabel}<i class="ph ph-arrow-right"></i></button></div>`;
+}
+
+/* Client */
+function pageClient(){
+  const w=S.ws,c=w.client,done=Object.values(w.intake).filter(Boolean).length;
+  return `<div class="head"><h1>Client intake</h1><p class="muted">Start from the website, then collect what only the client can give you.</p></div>
+  <div class="split client"><div style="display:contents">
+    <section>
+      <div class="grid2">
+        <label class="field"><span>Client name</span><input data-bind="client.name" value="${esc(c.name)}"></label>
+        <label class="field"><span>Sector</span><input data-bind="client.sector" value="${esc(c.sector)}"></label>
+        <label class="field"><span>Markets</span><input data-bind="client.markets" value="${esc(c.markets)}"></label>
+        <label class="field"><span>Approval contact</span><input data-bind="client.contact" value="${esc(c.contact)}"></label>
+      </div>
+      <div class="row" style="margin-top:14px">
+        <label class="field grow"><span>Website</span><input type="url" data-bind="client.url" value="${esc(c.url)}" placeholder="https://"></label>
+        <button class="btn primary" data-act="ingest" ${S.busy?"disabled":""}><i class="ph ph-globe"></i>${S.busy?"Reading site":"Read site"}</button>
+      </div>
+      ${!S.server?'<p class="note warn" style="margin-top:10px">Reading a site needs the local server. You can still type facts below.</p>':S.status&&!S.status.firecrawl?'<p class="note" style="margin-top:10px">Add FIRECRAWL_API_KEY to .env to read sites automatically. You can type facts below for now.</p>':""}
+      ${S.excerpt?`<details style="margin-top:10px"><summary>Page text from the last read</summary><p class="small" style="white-space:pre-wrap">${esc(S.excerpt)}</p></details>`:""}
+    </section>
+    <section class="facts"><div class="row" style="justify-content:space-between;align-items:center"><h2 style="margin:0">Facts and sources</h2><button class="btn small" data-act="addFact"><i class="ph ph-plus"></i>Add fact</button></div>
+    ${w.facts.length?`<div class="wrap-x"><table><thead><tr><th>Fact</th><th>Value</th><th>Basis</th><th></th></tr></thead><tbody>${w.facts.map((f,i)=>`<tr>
+      <td><input aria-label="Fact" data-fact="${i}" data-k="key" value="${esc(f.key)}"></td>
+      <td><input aria-label="Value" data-fact="${i}" data-k="value" value="${esc(f.value)}" title="${esc(f.source)}"></td>
+      <td><select aria-label="Basis" data-fact="${i}" data-k="tag">${["confirmed","sourced","estimated"].map(t=>`<option ${f.tag===t?"selected":""}>${t}</option>`).join("")}</select></td>
+      <td><button class="btn small" aria-label="Remove fact" data-act="delFact" data-i="${i}"><i class="ph ph-x"></i></button></td></tr>`).join("")}</tbody></table></div>`:'<p class="muted">No facts yet. Read the site or add one by hand. Every fact should say where it came from.</p>'}
+    </section></div>
+    <section class="panel"><h2>Ask the client for these (${done} of ${INTAKE.length} received)</h2>
+      <ul class="intake">${INTAKE.map((t,i)=>`<li><label><input type="checkbox" data-intake="${i}" ${w.intake[i]?"checked":""}><span class="small">${esc(t)}</span></label></li>`).join("")}</ul>
+    </section></div>${gateBar("client","Open documents")}`;
+}
+
+/* Documents */
+function pageDocs(){
+  const w=S.ws;
+  return `<div class="head"><h1>Document pack</h1><p class="muted">Six documents drive everything downstream. The client's approved version always wins over a draft.</p></div>
+  <section class="wrap-x"><table><thead><tr><th>Document</th><th>Status</th><th>Version</th><th>Source</th></tr></thead><tbody>
+  ${w.documents.map((d,i)=>`<tr><td style="font-weight:500;white-space:nowrap">${esc(d.name)}</td>
+    <td><select aria-label="Status of ${esc(d.name)}" data-doc="${i}" data-k="status" data-rerender="1">${["missing","draft","client-approved"].map(s=>`<option ${d.status===s?"selected":""}>${s}</option>`).join("")}</select></td>
+    <td><input aria-label="Version" style="width:110px" data-doc="${i}" data-k="version" value="${esc(d.version)}"></td>
+    <td style="min-width:260px"><input aria-label="Source" data-doc="${i}" data-k="source" value="${esc(d.source)}" placeholder="File name or link"></td></tr>`).join("")}
+  </tbody></table></section>
+  <div class="split"><section><h2>Client files</h2>
+    ${S.server?`<label class="btn"><i class="ph ph-upload-simple"></i>Add file<input type="file" multiple hidden data-change="upload"></label>
+    ${S.files.length?`<div class="wrap-x" style="margin-top:10px;max-height:300px;overflow:auto"><table><tbody>${S.files.map(f=>`<tr><td class="small">${esc(f.path)}</td><td class="num small">${fmtBytes(f.bytes)}</td></tr>`).join("")}</tbody></table></div>`:'<p class="muted" style="margin-top:8px">No files yet. Added files are included when you store this client on Drive.</p>'}`:'<p class="note warn">Adding files needs the local server.</p>'}
+  </section>
+  <section><h2>Scoring and message rules</h2><p class="small muted" style="margin-bottom:8px">Copied from this client's Lead Scoring and Brand documents. Never reuse another client's weights.</p>
+    <details><summary>Edit rules as JSON</summary>
+      <textarea id="rulesBox" spellcheck="false" class="mono" style="min-height:280px" aria-label="Rules JSON">${esc(JSON.stringify(w.rules,null,1))}</textarea>
+      <div class="row" style="margin-top:8px"><button class="btn" data-act="saveRules">Apply rules</button></div>
+    </details>
+    <p class="small" style="margin-top:8px">${scoring().fit.length} fit components, ${scoring().events.length} engagement signals, ${scoring().bands.length} bands, ${w.rules.messaging.templates.length} message templates.</p>
+  </section></div>${gateBar("docs","Open target profiles")}`;
+}
+
+/* Profiles */
+function pageProfiles(){
+  const w=S.ws,p=w.profiles.find(x=>x.id===S.profileId)||w.profiles[0];
+  const f=(k,l,ta)=>ta?`<label class="field"><span>${l}</span><textarea data-profile="${p.id}" data-k="${k}">${esc(p[k])}</textarea></label>`:`<label class="field"><span>${l}</span><input data-profile="${p.id}" data-k="${k}" value="${esc(p[k])}"></label>`;
+  return `<div class="head"><h1>Target profiles</h1><p class="muted">Keep each profile separate by sector, geography and revenue. Only active profiles are hunted.</p></div>
+  <div class="split"><section>
+    ${w.profiles.map(x=>`<button class="list-btn" data-act="pickProfile" data-id="${x.id}" aria-current="${p&&x.id===p.id}"><b>${esc(x.id)}</b> ${esc(x.title)}<br><span class="small muted">${esc(x.geography||"No geography")}, ${esc(x.revenue||"no revenue band")}${x.active?", active":""}</span></button>`).join("")||'<p class="muted">No profiles yet. Create the first one from the client\'s Target Profiles document.</p>'}
+    <button class="btn" style="margin-top:12px" data-act="addProfile"><i class="ph ph-plus"></i>New profile</button>
+  </section>
+  ${p?`<section class="panel"><div class="grid2">${f("id","Profile ID")}${f("title","Title")}${f("cell","Campaign cell")}${f("priority","Priority")}${f("sector","Sector")}${f("geography","Geography")}${f("revenue","Revenue range")}${f("status","Status signal")}</div>
+    <div style="display:grid;gap:14px;margin-top:14px">${f("hook","Hook",1)}${f("decisionMakers","Decision makers and stakeholders",1)}</div>
+    <div class="row" style="margin-top:14px;justify-content:space-between;align-items:center">
+      <label style="display:flex;gap:8px"><input type="checkbox" data-profile-active="${p.id}" ${p.active?"checked":""}>Active for hunting</label>
+      <button class="btn" data-act="exportProfile" data-id="${p.id}"><i class="ph ph-download-simple"></i>Export JSON</button></div></section>`:""}
+  </div>${gateBar("profiles","Open lead hunt")}`;
+}
+
+/* Leads */
+function filteredLeads(){
+  const f=S.leadFilter,q=f.q.toLowerCase();
+  return S.ws.leads.filter(l=>(!q||(l.name+" "+(l.ref||"")+" "+(l.city||"")).toLowerCase().includes(q))&&(!f.profile||l.profileId===f.profile)&&(!f.band||scoreOf(l).band.name===f.band)&&(!f.short||l.shortlisted));
+}
+function pageLeads(){
+  const w=S.ws,f=S.leadFilter,rows=filteredLeads(),size=25,pages=Math.max(1,Math.ceil(rows.length/size));
+  if(f.page>=pages)f.page=pages-1;
+  const view=rows.slice(f.page*size,f.page*size+size),lead=w.leads.find(l=>l.id===S.leadId);
+  return `<div class="head"><h1>Lead hunt</h1><p class="muted">${w.leads.length} leads, ${w.leads.filter(l=>l.shortlisted).length} shortlisted. Verify a lead before shortlisting it.</p></div>
+  <details style="margin-bottom:16px" class="panel"><summary>Find or import leads</summary>
+    <div class="row" style="margin-top:10px"><label class="field grow"><span>Search the public web for companies</span><input id="huntQ" value="${esc(S.huntQ||"")}" placeholder="Sector and city from an active profile"></label>
+      <button class="btn" data-act="hunt" ${S.busy?"disabled":""}><i class="ph ph-magnifying-glass"></i>Search</button>
+      <label class="btn"><i class="ph ph-file-csv"></i>Import CSV<input type="file" accept=".csv" hidden data-change="importCsv"></label>
+      <button class="btn" data-act="addLead"><i class="ph ph-plus"></i>Add lead</button></div>
+    ${S.hunt.length?`<div class="wrap-x" style="margin-top:10px"><table><tbody>${S.hunt.map((h,i)=>`<tr><td><b>${esc(h.title)}</b><br><span class="small muted">${esc(h.url)}</span><br><span class="small">${esc(h.description)}</span></td><td><button class="btn small" data-act="addHunt" data-i="${i}">Add</button></td></tr>`).join("")}</tbody></table></div>`:""}
+    <p class="small muted" style="margin-top:8px">CSV columns: name, entity, ref, city, pincode. Contact details are added per lead with their source and consent. LinkedIn is linked by hand, never scraped.</p>
+  </details>
+  <div class="row" style="margin-bottom:12px">
+    <label class="field grow"><span>Search</span><input data-filter="q" value="${esc(f.q)}" placeholder="Name, ID or city"></label>
+    <label class="field"><span>Profile</span><select data-filter="profile"><option value="">All</option>${w.profiles.map(p=>`<option value="${esc(p.id)}" ${f.profile===p.id?"selected":""}>${esc(p.id)}</option>`).join("")}</select></label>
+    <label class="field"><span>Band</span><select data-filter="band"><option value="">All</option>${scoring().bands.map(b=>`<option ${f.band===b.name?"selected":""}>${esc(b.name)}</option>`).join("")}</select></label>
+    <label style="display:flex;gap:6px;padding-bottom:8px"><input type="checkbox" data-filter="short" ${f.short?"checked":""}>Shortlisted</label>
+  </div>
+  <div class="split" style="grid-template-columns:minmax(0,7fr) minmax(0,5fr)"><section>
+    ${view.length?`<div class="wrap-x"><table><thead><tr><th>Name</th><th>ID</th><th>Profile</th><th>Signal</th><th style="text-align:right">Score</th><th>Band</th></tr></thead><tbody>
+    ${view.map(l=>{const s=scoreOf(l);return `<tr class="pick ${l.id===S.leadId?"sel":""}" data-act="pickLead" data-id="${l.id}" tabindex="0"><td>${l.shortlisted?'<i class="ph-fill ph-star" aria-label="Shortlisted"></i> ':""}${esc(l.name)}</td><td class="mono">${esc(l.ref)}</td><td class="mono">${esc(l.profileId)}</td><td class="small">${esc(l.signal)}</td><td class="num">${s.total}</td><td><span class="band ${s.band.name}">${esc(s.band.name)}</span></td></tr>`}).join("")}</tbody></table></div>
+    <div class="row" style="justify-content:space-between;align-items:center;margin-top:10px"><span class="small muted">${rows.length} match${rows.length===1?"":"es"}, page ${f.page+1} of ${pages}</span><span class="row"><button class="btn small" data-act="pageLeads" data-d="-1" ${f.page?"":"disabled"}>Previous</button><button class="btn small" data-act="pageLeads" data-d="1" ${f.page<pages-1?"":"disabled"}>Next</button></span></div>`:'<p class="muted">No leads match. Clear the filters, import a CSV, or add a lead above.</p>'}
+  </section>
+  <section>${lead?leadDetail(lead):'<p class="muted">Select a lead to verify its fit and contact routes.</p>'}</section></div>
+  ${gateBar("leads","Open conversations")}`;
+}
+function leadDetail(l){
+  const s=scoreOf(l);
+  return `<div class="panel"><div class="row" style="justify-content:space-between;align-items:start"><div><h2 style="margin:0">${esc(l.name)}</h2><span class="small muted">${esc(l.entity)} ${esc(l.city)} ${esc(l.pincode)}</span></div><div style="text-align:right"><div class="score-big" style="font-size:30px">${s.total}</div><span class="band ${s.band.name}">${esc(s.band.name)}</span></div></div>
+  ${l.fitNote?`<p class="note warn small" style="margin:10px 0">${esc(l.fitNote)}</p>`:""}
+  <div style="display:grid;gap:10px;margin:12px 0">
+    <label class="field"><span>Target profile</span><select data-lead="${l.id}" data-k="profileId"><option value="">Not assigned</option>${S.ws.profiles.map(p=>`<option value="${esc(p.id)}" ${l.profileId===p.id?"selected":""}>${esc(p.id)} ${esc(p.title)}</option>`).join("")}</select></label>
+    ${scoring().fit.map(c=>`<label class="field"><span>${esc(c.label)} (max ${c.max})</span><select data-fit="${l.id}" data-c="${esc(c.id)}">${c.options.map(o=>`<option value="${o.points}" ${Number(l.fit?.[c.id])===o.points?"selected":""}>+${o.points} ${esc(o.label)}</option>`).join("")}</select></label>`).join("")}
+  </div>
+  <h2>Contact routes</h2>
+  ${(l.contacts||[]).map((c,i)=>`<div class="grid2" style="margin-bottom:8px;grid-template-columns:90px minmax(0,1fr) 110px"><select aria-label="Channel" data-contact="${l.id}" data-i="${i}" data-k="channel">${["whatsapp","email","linkedin","phone"].map(x=>`<option ${c.channel===x?"selected":""}>${x}</option>`).join("")}</select><input aria-label="Contact value" data-contact="${l.id}" data-i="${i}" data-k="value" value="${esc(c.value)}"><select aria-label="Consent" data-contact="${l.id}" data-i="${i}" data-k="consent">${["none","implied","opted_in"].map(x=>`<option ${c.consent===x?"selected":""}>${x}</option>`).join("")}</select><input style="grid-column:1/-1" aria-label="Source" placeholder="Where this came from" data-contact="${l.id}" data-i="${i}" data-k="source" value="${esc(c.source)}"></div>`).join("")||'<p class="muted small">No contact routes yet.</p>'}
+  <div class="row" style="margin-top:8px;justify-content:space-between"><button class="btn small" data-act="addContact" data-id="${l.id}"><i class="ph ph-plus"></i>Add route</button>
+  <button class="btn ${l.shortlisted?"":"primary"}" data-act="toggleShort" data-id="${l.id}">${l.shortlisted?"Remove from shortlist":"Shortlist"}</button></div></div>`;
+}
+
+/* Conversations */
+function pageTalk(){
+  const w=S.ws,short=w.leads.filter(l=>l.shortlisted),l=short.find(x=>x.id===S.talkId)||short[0],stages=scoring().stages||[];
+  if(l)S.talkId=l.id;
+  const funnel=stages.map(st=>`<div><b>${w.leads.filter(x=>x.shortlisted&&x.stage===st).length}</b><span class="small muted">${esc(st)}</span></div>`).join("");
+  return `<div class="head"><h1>Conversations</h1><p class="muted">Every message is approved here and sent by you. Replies and calls you log move the score and the stage.</p></div>
+  ${funnel?`<div class="funnel" aria-label="Funnel of shortlisted leads">${funnel}</div>`:""}
+  ${!short.length?'<p class="muted">No shortlisted leads yet. Shortlist one on the Lead hunt page.</p>':`<div class="split-thin">
+    <section>${short.map(x=>{const s=scoreOf(x);return `<button class="list-btn" data-act="pickTalk" data-id="${x.id}" aria-current="${x.id===l.id}"><span style="display:flex;justify-content:space-between;gap:8px"><b>${esc(x.name)}</b><span class="band ${s.band.name}">${s.total}</span></span><span class="small muted">${esc(x.stage||"No stage")}</span></button>`}).join("")}</section>
+    <section>${threadView(l)}</section>
+    <section>${scoreView(l)}</section></div>`}`;
+}
+function threadView(l){
+  const t=S.ws.rules.messaging.templates,checks=checkMessage(S.draft,l),blocked=checks.some(c=>c.level==="fail")||!S.draft.trim();
+  const stopped=isStopped(l);
+  return `<h2>${esc(l.name)}</h2><div class="thread">${(l.messages||[]).map(m=>`<div class="msg ${m.dir}"><div style="white-space:pre-wrap">${esc(m.body)}</div><div class="meta"><span>${esc(m.channel)}</span><span>${fmtTime(m.ts)}</span><span>${esc(m.status)}</span>
+    ${m.dir==="out"&&m.status==="approved"?`<button class="btn small" data-act="copyMsg" data-id="${m.id}">Copy</button><button class="btn small" data-act="markSent" data-id="${m.id}">Mark sent</button>`:""}</div></div>`).join("")||'<p class="muted">No messages yet. Pick a template to write the first one.</p>'}</div>
+  ${stopped?'<p class="note bad">This lead asked not to be contacted or is suppressed. Messaging is switched off.</p>':`<div class="panel">
+    <div class="row"><label class="field grow"><span>Template</span><select data-change="useTemplate"><option value="">Choose</option>${t.map((x,i)=>`<option value="${i}">${esc(x.name)}</option>`).join("")}</select></label>
+    <label class="field"><span>Channel</span><select data-change="setChannel">${["whatsapp","email"].map(c=>`<option ${S.draftChannel===c?"selected":""}>${c}</option>`).join("")}</select></label></div>
+    <label class="field" style="margin-top:10px"><span>Message</span><textarea id="draftBox" data-draft="1">${esc(S.draft)}</textarea></label>
+    <ul class="checks" id="checks">${checksHtml(checks)}</ul>
+    <button class="btn primary" id="approveBtn" data-act="approve" ${blocked?"disabled":""}><i class="ph ph-check"></i>Approve</button>
+  </div>
+  <div class="row" style="margin-top:14px"><label class="field grow"><span>Log a reply from the lead</span><textarea id="replyBox" style="min-height:56px"></textarea></label>
+  <button class="btn" data-act="logReply"><i class="ph ph-arrow-bend-down-left"></i>Log reply</button></div>`}`;
+}
+function scoreView(l){
+  const s=scoreOf(l),groups=[...new Set(scoring().events.map(e=>e.group))];
+  return `<div class="panel"><div class="score-big">${s.total}</div><p class="small muted" style="margin:4px 0 8px">Fit ${s.fit} plus engagement ${s.engagement}</p>
+    <span class="band ${s.band.name}">${esc(s.band.name)}</span><p class="small" style="margin-top:8px">${esc(s.band.action)}</p>
+    <label class="field" style="margin-top:12px"><span>Stage</span><select data-lead="${l.id}" data-k="stage" data-rerender="1">${(scoring().stages||[]).map(st=>`<option ${l.stage===st?"selected":""}>${esc(st)}</option>`).join("")}</select></label></div>
+  <h2 style="margin-top:16px">Log a signal</h2>
+  ${groups.map(g=>`<details><summary class="small">${esc(g)}</summary><div class="events">${scoring().events.filter(e=>e.group===g).map(e=>`<button class="btn" data-act="logEvent" data-id="${esc(e.id)}"><span>${esc(e.label)}</span><span class="mono">${e.points>0?"+":""}${e.points}</span></button>`).join("")}</div></details>`).join("")}
+  ${(l.events||[]).length?`<h2 style="margin-top:16px">History</h2><ul class="checks">${[...l.events].reverse().slice(0,10).map(e=>{const d=eventDef(e.id);return `<li class="small"><span class="mono">${d&&d.points>0?"+":""}${d?d.points:"?"}</span><span>${esc(d?d.label:e.id)}, ${fmtTime(e.ts)}</span><button class="btn small" aria-label="Undo" style="margin-left:auto" data-act="undoEvent" data-key="${esc(e.key)}"><i class="ph ph-arrow-counter-clockwise"></i></button></li>`}).join("")}</ul>`:""}`;
+}
+function checkMessage(text,l){
+  const m=S.ws.rules.messaging,out=[],low=text.toLowerCase();
+  if(!text.trim())return [];
+  const tpl=m.templates.find(t=>t.name===S.draftTemplate);
+  if(tpl?.requireAnchor&&m.anchor){const a=m.anchor.replace("[Name]",firstName(l));out.push(text.includes(a)?{level:"pass",text:"Anchor line is exact"}:{level:"fail",text:"Anchor line was changed"})}
+  if(tpl?.oneQuestion){const q=(text.match(/\?/g)||[]).length;out.push(q===1&&text.trim().endsWith("?")?{level:"pass",text:"Ends on one open question"}:{level:"fail",text:"Must end on exactly one question"})}
+  if(/\[[^\]]+\]/.test(text))out.push({level:"fail",text:"Fill every [placeholder]"});
+  m.banned.filter(b=>low.includes(b.toLowerCase())).forEach(b=>out.push({level:"fail",text:`Banned line: "${b}"`}));
+  (m.replace||[]).filter(r=>low.includes(r.bad.toLowerCase())).forEach(r=>out.push({level:"fail",text:`Say "${r.good}", not "${r.bad}"`}));
+  if(/[–—]|\s-\s/.test(text))out.push({level:"fail",text:"Replace dashes with commas"});
+  if(isStopped(l))out.push({level:"fail",text:"Lead is suppressed"});
+  if(l.entity==="corporate")out.push({level:"warn",text:"This is a company name. Use a real person's first name."});
+  const route=(l.contacts||[]).find(c=>c.channel===S.draftChannel);
+  if(!route)out.push({level:"warn",text:`No ${S.draftChannel} route on this lead`});
+  else if(route.consent==="none")out.push({level:"warn",text:`${S.draftChannel} consent is not confirmed`});
+  if(m.maxChars&&S.draftChannel==="whatsapp"&&text.length>m.maxChars)out.push({level:"warn",text:`${text.length} characters, the channel spec says ${m.maxChars}`});
+  if(/^(COLD|PARKED)$/.test(scoreOf(l).band.name))out.push({level:"warn",text:`${scoreOf(l).band.name} band: ${scoreOf(l).band.action}`});
+  return out;
+}
+const firstName=l=>(l.name||"").trim().split(/\s+/)[0]||"[Name]";
+const checksHtml=cs=>cs.map(c=>`<li class="${c.level}"><i class="ph ${c.level==="pass"?"ph-check":c.level==="fail"?"ph-x":"ph-warning"}" aria-hidden="true"></i>${esc(c.text)}</li>`).join("");
+
+/* Drive drawer */
+function renderDrawer(){
+  const d=S.status?.drive,cl=S.ws.client.slug;
+  $("#drawer").innerHTML=`<div class="row" style="justify-content:space-between;align-items:center"><h2 style="margin:0;font-size:20px">Drive storage</h2><button class="btn small" aria-label="Close" data-act="closeDrive"><i class="ph ph-x"></i></button></div>
+  ${!S.server?'<p class="note warn" style="margin-top:12px">Storage needs the local server. Run python ui/server.py and open http://127.0.0.1:8765.</p>':`
+  <p class="note ${d?.available?"ok":"warn"}" style="margin:12px 0">${d?.available?"Connected to "+esc(d.folder):"Google Drive folder not found at "+esc(d?.folder||"")+". Zips wait on this PC and move to Drive once the folder appears. Install Google Drive for Desktop or set GDRIVE_FOLDER."}${d?.queued?` ${d.queued} zip(s) waiting.`:""}</p>
+  <p class="small muted">The agent zips this client's workspace and files, checks the zip, then copies it. Retrieving extracts it into data/retrieved and checks every file.</p>
+  <button class="btn primary" style="margin-top:12px" data-act="store" ${S.busy?"disabled":""}><i class="ph ph-file-zip"></i>Compress and store</button>
+  ${S.trace.length?`<ul class="trace" aria-live="polite">${S.trace.map(t=>`<li><i class="ph ph-check" aria-hidden="true"></i>${esc(t)}</li>`).join("")}</ul>`:""}
+  <h2 style="margin-top:22px">Archives for ${esc(cl)}</h2>
+  ${S.archives.length?`<div class="wrap-x"><table><tbody>${S.archives.map(a=>`<tr><td class="small"><span class="mono">${esc(a.name)}</span><br><span class="muted">${fmtBytes(a.bytes)}, ${a.state==="stored"?"on Drive":"waiting on this PC"}</span></td>
+    <td style="white-space:nowrap"><button class="btn small" data-act="retrieve" data-name="${esc(a.name)}" ${S.busy?"disabled":""}>Retrieve</button> <button class="btn small" data-act="restore" data-name="${esc(a.name)}" ${S.busy?"disabled":""}>Restore</button></td></tr>`).join("")}</tbody></table></div>`:'<p class="muted">Nothing stored yet.</p>'}`}`;
+}
+async function refreshDrive(){
+  if(!S.server)return;
+  try{[S.status,S.archives,S.files]=await Promise.all([api("/api/status"),api("/api/archives?client="+S.ws.client.slug),api("/api/files?client="+S.ws.client.slug)])}catch(e){toast(e.message)}
+}
+
+/* Rendering */
+function render(){
+  renderRail();
+  const pages={client:pageClient,docs:pageDocs,profiles:pageProfiles,leads:pageLeads,talk:pageTalk};
+  $("#page").innerHTML=`<div class="page" ${render.last===S.page?'style="animation:none"':""}>${pages[S.page]()}</div>`;
+  render.last=S.page;
+  renderDrawer();
+}
+/* Re-render without losing the caret in a field the user is typing in. */
+function renderKeepFocus(){
+  const a=document.activeElement,key=a&&a.dataset?JSON.stringify(a.dataset):null,pos=a?.selectionStart;
+  render();
+  if(key)for(const el of document.querySelectorAll("input,textarea,select"))if(JSON.stringify(el.dataset)===key){el.focus();if(pos!=null&&el.setSelectionRange&&el.type!=="checkbox"&&el.type!=="file")el.setSelectionRange(pos,pos);break}
+}
+const leadById=id=>S.ws.leads.find(l=>l.id===id);
+const currentTalk=()=>leadById(S.talkId);
+function setPath(obj,path,val){const k=path.split(".");let o=obj;while(k.length>1)o=o[k.shift()];o[k[0]]=val}
+
+/* Input handling by event delegation. */
+document.addEventListener("input",e=>{
+  const t=e.target,d=t.dataset;
+  if(d.bind){setPath(S.ws,d.bind,t.value);save();renderRail();syncGate()}
+  else if(d.fact){S.ws.facts[+d.fact][d.k]=t.value;save()}
+  else if(d.doc&&t.tagName!=="SELECT"){S.ws.documents[+d.doc][d.k]=t.value;save()}
+  else if(d.profile){const p=S.ws.profiles.find(x=>x.id===d.profile);p[d.k]=t.value;if(d.k==="id"){d.profile=t.value;S.profileId=t.value}save()}
+  else if(d.contact&&t.tagName!=="SELECT"){leadById(d.contact).contacts[+d.i][d.k]=t.value;save()}
+  else if(d.filter==="q"){S.leadFilter.q=t.value;S.leadFilter.page=0;renderKeepFocus()}
+  else if(d.draft){S.draft=t.value;const c=checkMessage(S.draft,currentTalk());$("#checks").innerHTML=checksHtml(c);$("#approveBtn").disabled=c.some(x=>x.level==="fail")||!S.draft.trim()}
+  else if(t.id==="huntQ")S.huntQ=t.value;
+});
+function syncGate(){const b=document.querySelector(".gate");if(b&&S.page==="client"){const g=gates().client;b.querySelector("span").textContent=g.ok?"Ready for documents.":g.why;b.querySelector("button").disabled=!g.ok}}
+document.addEventListener("change",async e=>{
+  const t=e.target,d=t.dataset;
+  if(d.change){await handlers[d.change](t);return}
+  if(d.intake){S.ws.intake[d.intake]=t.checked;save();render()}
+  else if(d.fact&&t.tagName==="SELECT"){S.ws.facts[+d.fact][d.k]=t.value;save()}
+  else if(d.doc&&t.tagName==="SELECT"){S.ws.documents[+d.doc][d.k]=t.value;save();renderKeepFocus()}
+  else if(d.profileActive){S.ws.profiles.find(x=>x.id===d.profileActive).active=t.checked;save();render()}
+  else if(d.lead){leadById(d.lead)[d.k]=t.value;save();renderKeepFocus()}
+  else if(d.fit){const l=leadById(d.fit);l.fit=l.fit||{};l.fit[d.c]=Number(t.value);delete l.fitNote;save();renderKeepFocus()}
+  else if(d.contact&&t.tagName==="SELECT"){leadById(d.contact).contacts[+d.i][d.k]=t.value;save()}
+  else if(d.filter&&d.filter!=="q"){S.leadFilter[d.filter]=t.type==="checkbox"?t.checked:t.value;S.leadFilter.page=0;render()}
+});
+document.addEventListener("click",e=>{
+  const el=e.target.closest("[data-act]");
+  if(!el||el.disabled)return;
+  handlers[el.dataset.act](el);
+});
+document.addEventListener("keydown",e=>{
+  if(e.key==="Enter"&&e.target.matches("tr.pick"))handlers.pickLead(e.target);
+  if(e.key==="Escape"&&$("#drawer").classList.contains("open"))handlers.closeDrive();
+});
+function parseCsv(text){
+  const rows=[];let row=[],cell="",q=false;
+  for(let i=0;i<text.length;i++){const c=text[i];
+    if(q){if(c==='"'&&text[i+1]==='"'){cell+='"';i++}else if(c==='"')q=false;else cell+=c}
+    else if(c==='"')q=true;else if(c===","){row.push(cell);cell=""}
+    else if(c==="\n"||c==="\r"){if(c==="\r"&&text[i+1]==="\n")i++;row.push(cell);if(row.some(Boolean))rows.push(row);row=[];cell=""}
+    else cell+=c}
+  row.push(cell);if(row.some(Boolean))rows.push(row);
+  const head=(rows.shift()||[]).map(h=>h.trim().toLowerCase());
+  return rows.map(r=>Object.fromEntries(head.map((h,i)=>[h,(r[i]||"").trim()])));
+}
+const newLead=o=>({id:uid(),name:"",entity:"",ref:"",city:"",pincode:"",signal:"",profileId:"",fit:{},contacts:[],shortlisted:false,stage:scoring().stages?.[0]||"",events:[],messages:[],...o});
+const handlers={
+  go:el=>go(el.dataset.id),
+  async switchClient(t){await loadClient(t.value)},
+  async newClient(){
+    const name=prompt("Client name");if(!name)return;
+    const slug=name.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,60);
+    if(!slug)return toast("Use letters or numbers in the name");
+    if(S.clients.includes(slug))return toast("That client already exists");
+    S.clients.push(slug);S.ws=blankWorkspace(slug,name);S.page="client";save();await refreshDrive();render();
+  },
+  async ingest(){
+    if(!S.server)return toast("Start the local server first");
+    S.busy=true;render();
+    try{const r=await post("/api/ingest",{url:S.ws.client.url});S.ws.facts.push(...r.facts);S.excerpt=r.excerpt;save();toast(r.facts.length+" facts added from the site")}
+    catch(e){toast(e.message)}
+    S.busy=false;render();
+  },
+  addFact(){S.ws.facts.push({key:"",value:"",source:"manual",tag:"estimated"});save();render()},
+  delFact(el){S.ws.facts.splice(+el.dataset.i,1);save();render()},
+  saveRules(){
+    try{const r=JSON.parse($("#rulesBox").value);
+      if(!r.scoring?.fit||!r.scoring?.events||!r.scoring?.bands||!r.messaging?.templates)throw new Error("Rules need scoring.fit, scoring.events, scoring.bands and messaging.templates");
+      S.ws.rules=r;save();render();toast("Rules applied")}catch(e){toast("Rules not applied: "+e.message)}
+  },
+  async upload(t){
+    try{for(const f of t.files)await api(`/api/upload?client=${S.ws.client.slug}&name=${encodeURIComponent(f.name)}`,{method:"POST",body:f});
+      await refreshDrive();toast(t.files.length+" file(s) added");render()}catch(e){toast(e.message)}
+  },
+  pickProfile(el){S.profileId=el.dataset.id;render()},
+  addProfile(){const n="TP"+String(S.ws.profiles.length+1).padStart(2,"0");S.ws.profiles.push({id:n,title:"New profile",cell:"",priority:"",sector:"",geography:"",revenue:"",status:"",hook:"",decisionMakers:"",active:false});S.profileId=n;save();render()},
+  exportProfile(el){
+    const p=S.ws.profiles.find(x=>x.id===el.dataset.id);
+    const json={profile_id:p.id,profile_title:p.title,campaign_cell:p.cell,hook:p.hook,industry:p.sector,revenue_range:p.revenue,geographic_focus:{primary_regions:p.geography},decision_makers:p.decisionMakers,priority_level:p.priority};
+    const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(json,null,2)],{type:"application/json"}));a.download=p.id+".json";a.click();URL.revokeObjectURL(a.href);
+  },
+  async hunt(){
+    if(!S.server)return toast("Start the local server first");
+    S.busy=true;render();
+    try{S.hunt=await post("/api/hunt",{query:S.huntQ||""});if(!S.hunt.length)toast("No results")}catch(e){toast(e.message)}
+    S.busy=false;render();document.querySelector("details.panel").open=true;
+  },
+  addHunt(el){const h=S.hunt[+el.dataset.i];const l=newLead({name:h.title,entity:"company",signal:"web search",sourceUrl:h.url});S.ws.leads.unshift(l);S.leadId=l.id;S.hunt.splice(+el.dataset.i,1);save();render();document.querySelector("details.panel").open=true},
+  addLead(){const name=prompt("Lead name");if(!name)return;const l=newLead({name});S.ws.leads.unshift(l);S.leadId=l.id;save();render()},
+  async importCsv(t){
+    const rows=parseCsv(await t.files[0].text()).filter(r=>r.name);
+    const seen=new Set(S.ws.leads.map(l=>l.ref).filter(Boolean));
+    const fresh=rows.filter(r=>!r.ref||!seen.has(r.ref));
+    S.ws.leads.unshift(...fresh.map(r=>newLead({name:r.name,entity:r.entity||"",ref:r.ref||"",city:r.city||"",pincode:r.pincode||""})));
+    save();render();toast(`${fresh.length} leads imported, ${rows.length-fresh.length} duplicates skipped`);
+  },
+  pageLeads(el){S.leadFilter.page+=+el.dataset.d;render()},
+  pickLead(el){S.leadId=el.dataset.id;render()},
+  addContact(el){const l=leadById(el.dataset.id);l.contacts=l.contacts||[];l.contacts.push({channel:"whatsapp",value:"",source:"",consent:"none"});save();render()},
+  toggleShort(el){const l=leadById(el.dataset.id);l.shortlisted=!l.shortlisted;save();render()},
+  pickTalk(el){S.talkId=el.dataset.id;S.draft="";S.draftTemplate="";render()},
+  useTemplate(t){
+    if(t.value==="")return;
+    const tpl=S.ws.rules.messaging.templates[+t.value],l=currentTalk();
+    S.draftTemplate=tpl.name;
+    S.draft=tpl.body.replace("{anchor}",S.ws.rules.messaging.anchor||"").replaceAll("[Name]",firstName(l));
+    render();
+  },
+  setChannel(t){S.draftChannel=t.value;render()},
+  approve(){
+    const l=currentTalk();
+    l.messages=l.messages||[];
+    l.messages.push({id:uid(),dir:"out",channel:S.draftChannel,body:S.draft,status:"approved",template:S.draftTemplate||"",ts:new Date().toISOString()});
+    S.draft="";S.draftTemplate="";save();render();toast("Approved. Copy it and send it yourself, then mark it sent.");
+  },
+  async copyMsg(el){
+    const m=currentTalk().messages.find(x=>x.id===el.dataset.id);
+    try{await navigator.clipboard.writeText(m.body);toast("Copied")}catch{toast("Copy failed. Select the text by hand.")}
+  },
+  markSent(el){const m=currentTalk().messages.find(x=>x.id===el.dataset.id);m.status="sent";m.ts=new Date().toISOString();save();render()},
+  logReply(){
+    const box=$("#replyBox"),text=box.value.trim();if(!text)return toast("Paste the reply first");
+    currentTalk().messages.push({id:uid(),dir:"in",channel:S.draftChannel,body:text,status:"received",ts:new Date().toISOString()});
+    save();render();toast("Reply logged. Now log the matching signal so the score moves.");
+  },
+  logEvent(el){
+    const l=currentTalk(),def=eventDef(el.dataset.id);
+    l.events=l.events||[];
+    l.events.push({key:uid(),id:def.id,ts:new Date().toISOString(),prevStage:l.stage});
+    if(def.stage)l.stage=def.stage;
+    if(def.stop)(l.contacts||[]).forEach(c=>{if(c.value&&!S.ws.suppression.includes(c.value))S.ws.suppression.push(c.value)});
+    save();render();
+    const s=scoreOf(l);toast(`${def.label}: score ${s.total}, ${s.band.name}`);
+  },
+  undoEvent(el){
+    const l=currentTalk(),i=l.events.findIndex(e=>e.key===el.dataset.key);if(i<0)return;
+    const [ev]=l.events.splice(i,1);
+    if(eventDef(ev.id)?.stage&&ev.prevStage)l.stage=ev.prevStage;
+    if(eventDef(ev.id)?.stop&&!l.events.some(e=>eventDef(e.id)?.stop))S.ws.suppression=S.ws.suppression.filter(v=>!(l.contacts||[]).some(c=>c.value===v));
+    save();render();
+  },
+  async openDrive(){$("#drawer").classList.add("open");await refreshDrive();renderDrawer();$("#drawer button")?.focus()},
+  closeDrive(){$("#drawer").classList.remove("open")},
+  async store(){
+    S.busy=true;S.trace=["Saving workspace"];renderDrawer();
+    try{
+      await api("/api/workspace?client="+S.ws.client.slug,{method:"PUT",body:JSON.stringify(S.ws)});
+      S.trace.push("Compressing files");renderDrawer();
+      const r=await post("/api/store",{client:S.ws.client.slug});
+      const pct=r.original_bytes?Math.round(100-r.zip_bytes/r.original_bytes*100):0;
+      S.trace=[`Compressed ${r.files} files: ${fmtBytes(r.original_bytes)} to ${fmtBytes(r.zip_bytes)} (${pct}% smaller)`,"Checked zip integrity",r.state==="stored"?"Copied to Drive and matched the hash":"Drive not found, zip is waiting on this PC",r.name];
+    }catch(e){S.trace=[];toast(e.message)}
+    S.busy=false;await refreshDrive();renderDrawer();
+  },
+  async retrieve(el){
+    S.busy=true;renderDrawer();
+    try{const r=await post("/api/retrieve",{name:el.dataset.name});S.trace=[`${r.already_extracted?"Already extracted":"Extracted and verified"}: ${r.files} files`,r.location]}catch(e){toast(e.message)}
+    S.busy=false;renderDrawer();
+  },
+  async restore(el){
+    if(!confirm("Replace this client's current workspace with the one in "+el.dataset.name+"? The current one is kept as a backup file."))return;
+    S.busy=true;renderDrawer();
+    try{
+      await post("/api/retrieve",{name:el.dataset.name});
+      const r=await post("/api/restore",{name:el.dataset.name,client:S.ws.client.slug});
+      S.ws=r.workspace;S.trace=["Workspace restored",r.backup?"Previous version kept at "+r.backup:"No previous version"];
+    }catch(e){toast(e.message)}
+    S.busy=false;render();
+  }
+};
+
+async function loadClient(slug){
+  if(S.server)S.ws=await api("/api/workspace?client="+slug);
+  else{let raw=null;try{raw=localStorage.getItem("leadgen:"+slug)}catch{}S.ws=raw?JSON.parse(raw):blankWorkspace(slug,slug)}
+  S.page="client";S.trace=[];S.draft="";S.leadId=S.profileId=S.talkId=null;
+  await refreshDrive();render();
+}
+(async function boot(){
+  $("#page").innerHTML='<div class="skeleton" style="width:40%;height:28px"></div><div class="skeleton"></div><div class="skeleton" style="width:80%"></div>';
+  try{S.clients=await api("/api/clients");S.server=true}catch{
+    S.server=false;S.clients=[];
+    try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k.startsWith("leadgen:"))S.clients.push(k.slice(8))}}catch{}
+  }
+  $("#saveState").textContent=S.server?"Connected to local server":"Browser-only mode";
+  if(!S.clients.length){S.clients=["new-client"];S.ws=blankWorkspace("new-client","");await refreshDrive();render();return}
+  await loadClient(S.clients[0]);
+})();
+</script>
+</body>
+</html>

@@ -1,5 +1,6 @@
 # This repo is public. Client material and lead data stay local.
 docs/
+data/
 config/client_document_standard.md
 
 # Secrets and local data
